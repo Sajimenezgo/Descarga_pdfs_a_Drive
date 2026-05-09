@@ -1,0 +1,58 @@
+/**
+ * Descarga adjuntos de Gmail basándose en etiquetas anidadas.
+ * Verifica si el nombre del archivo ya existe en Drive para evitar duplicados.
+ */
+function descargarAdjuntosPorEtiqueta() {
+  // --- CONFIGURACIÓN ---
+  const ETIQUETA_NOMBRE = "archivos financieros/extractos/tc"; // Cambia por el nombre de tu etiqueta
+  const NOMBRE_CARPETA = "Descargas_Gmail"; // Carpeta de destino en Drive
+  // ---------------------
+
+  // 1. Obtener o crear la carpeta en Drive
+  let carpeta;
+  const carpetas = DriveApp.getFoldersByName(NOMBRE_CARPETA);
+  
+  if (carpetas.hasNext()) {
+    carpeta = carpetas.next();
+  } else {
+    carpeta = DriveApp.createFolder(NOMBRE_CARPETA);
+  }
+
+  // 2. Obtener la etiqueta (maneja la jerarquía de barras /)
+  const etiquetaObj = GmailApp.getUserLabelByName(ETIQUETA_NOMBRE);
+  
+  if (!etiquetaObj) {
+    console.error("Error: No se encontró la etiqueta '" + ETIQUETA_NOMBRE + "'. Verifica que los nombres y niveles sean correctos.");
+    return;
+  }
+
+  // 3. Procesar los hilos de la etiqueta
+  const hilos = etiquetaObj.getThreads();
+  console.log("Iniciando procesamiento de " + hilos.length + " hilos.");
+
+  hilos.forEach(hilo => {
+    const mensajes = hilo.getMessages();
+    
+    mensajes.forEach(mensaje => {
+      const adjuntos = mensaje.getAttachments();
+      
+      adjuntos.forEach(adjunto => {
+        const nombreArchivo = adjunto.getName();
+        
+        // Verificación de existencia por nombre exacto
+        const archivosExistentes = carpeta.getFilesByName(nombreArchivo);
+        
+        if (!archivosExistentes.hasNext()) {
+          // El archivo no existe, proceder con la descarga
+          carpeta.createFile(adjunto);
+          console.log("Guardado: " + nombreArchivo);
+        } else {
+          // El archivo ya existe, saltar
+          console.log("Omitido (ya está en Drive): " + nombreArchivo);
+        }
+      });
+    });
+  });
+  
+  console.log("¡Finalizado! Todos los archivos nuevos han sido procesados.");
+}
